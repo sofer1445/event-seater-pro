@@ -50,6 +50,12 @@ export function SeatingMap({ rows, seatsPerRow, onSeatClick }: SeatingMapProps) 
 
     setSeats(newSeats);
     onSeatClick?.(seat);
+
+    if (seat.status === "available") {
+      toast.success(`Seat ${seat.row + 1}-${seat.number + 1} selected`);
+    } else {
+      toast.info(`Seat ${seat.row + 1}-${seat.number + 1} deselected`);
+    }
   };
 
   return (

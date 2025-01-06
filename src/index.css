@@ -51,3 +51,18 @@
 .seat-selected {
   @apply bg-primary/60 text-primary-foreground;
 }
+
+/* Advanced styling for seating function */
+.seat {
+  @apply shadow-lg transform transition-transform duration-300;
+}
+
+.seat:hover {
+  @apply scale-105;
+}
+
+@media (max-width: 768px) {
+  .seat {
+    @apply w-8 h-8 text-xs;
+  }
+}
