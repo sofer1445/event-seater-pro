@@ -23,12 +23,19 @@ const EventNew = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.from("events").insert([
-        {
-          ...formData,
-          date: new Date(formData.date).toISOString(),
-        },
-      ]);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error("No authenticated user found");
+      }
+
+      const { error } = await supabase.from("events").insert({
+        ...formData,
+        date: new Date(formData.date).toISOString(),
+        created_by: user.id,
+      });
 
       if (error) throw error;
 
