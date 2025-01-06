@@ -25,7 +25,7 @@ export function SeatingMap({ rows, seatsPerRow, onSeatClick }: SeatingMapProps) 
           id: `${row}-${number}`,
           row,
           number,
-          status: "available"
+          status: "available" as const
         });
       }
     }
@@ -43,7 +43,7 @@ export function SeatingMap({ rows, seatsPerRow, onSeatClick }: SeatingMapProps) 
         return {
           ...s,
           status: s.status === "selected" ? "available" : "selected"
-        };
+        } as const;
       }
       return s;
     });
