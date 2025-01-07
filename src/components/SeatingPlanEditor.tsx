@@ -491,6 +491,20 @@ const SeatingPlanEditor = ({
         return () => window.removeEventListener('resize', updateContainerSize)
     }, [seats])
 
+    const calculateTablePosition = (tableNumber: number) => {
+        const tableSeats = seats.filter(s => s.row_number === tableNumber);
+        if (tableSeats.length === 0) return { x: 0, y: 0 };
+
+        // Calculate the average position of all seats in the table
+        const totalX = tableSeats.reduce((sum, seat) => sum + (seat.x_position || 0), 0);
+        const totalY = tableSeats.reduce((sum, seat) => sum + (seat.y_position || 0), 0);
+        
+        return {
+            x: totalX / tableSeats.length,
+            y: totalY / tableSeats.length
+        };
+    };
+
     return (
         <div ref={containerRef} style={{ width: '100%', height: '100%', minHeight: '600px' }}>
             <div className="flex h-full">
