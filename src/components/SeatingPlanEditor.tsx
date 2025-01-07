@@ -1,30 +1,20 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Stage, Layer, Rect, Text, Circle, Group, Line } from 'react-konva'
+import { Stage, Layer } from 'react-konva'
 import { Seat, Participant } from '../types'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
-import { Search } from 'lucide-react'
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from './ui/dialog'
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from './ui/card'
-import { toast, useToast } from './ui/use-toast'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
+import { useToast } from './ui/use-toast'
 import { cn } from '../lib/utils'
 import { Switch } from './ui/switch'
 import { Badge } from './ui/badge'
 import { supabase } from '../integrations/supabase/client'
 import { debounce } from 'lodash'
+import { TableComponent } from './seating/TableComponent'
+import { SeatComponent } from './seating/SeatComponent'
+import { GridComponent } from './seating/GridComponent'
 
 interface Props {
     eventId: string
@@ -32,45 +22,6 @@ interface Props {
     participants: Participant[]
     onSeatsChange: (seats: Seat[]) => void
     onSeatAssign: (participantId: string, seatId: string) => void
-}
-
-interface GridProps {
-    width: number
-    height: number
-    cellWidth: number
-    cellHeight: number
-    stroke: string
-    strokeWidth: number
-}
-
-const Grid = ({ width, height, cellWidth, cellHeight, stroke, strokeWidth }: GridProps) => {
-    const lines = []
-    
-    // Vertical lines
-    for (let i = 0; i <= width; i += cellWidth) {
-        lines.push(
-            <Line
-                key={`v${i}`}
-                points={[i, 0, i, height]}
-                stroke={stroke}
-                strokeWidth={strokeWidth}
-            />
-        )
-    }
-    
-    // Horizontal lines
-    for (let i = 0; i <= height; i += cellHeight) {
-        lines.push(
-            <Line
-                key={`h${i}`}
-                points={[0, i, width, i]}
-                stroke={stroke}
-                strokeWidth={strokeWidth}
-            />
-        )
-    }
-    
-    return <>{lines}</>
 }
 
 const SeatingPlanEditor = ({
@@ -146,11 +97,9 @@ const SeatingPlanEditor = ({
 
     const handleDragMove = (seat: Seat, e: any) => {
         const node = e.target;
-        // Update position in real-time during drag
         const newX = snapToGrid(node.x());
         const newY = snapToGrid(node.y());
         
-        // Update the visual position
         node.position({
             x: newX,
             y: newY
@@ -165,12 +114,14 @@ const SeatingPlanEditor = ({
         try {
             const pos = e.target.position();
             const updatedSeat = {
-                ...seat,
+                id: seat.id,
+                event_id: seat.event_id,
+                row_number: seat.row_number,
+                seat_number: seat.seat_number,
                 x_position: snapToGrid(pos.x),
                 y_position: snapToGrid(pos.y),
             };
 
-            // Update the seat in Supabase
             const { error } = await supabase
                 .from('seats')
                 .update({
@@ -185,17 +136,15 @@ const SeatingPlanEditor = ({
                     title: "Error",
                     description: "Failed to update seat position"
                 });
-                console.error('Error updating seat:', error);
                 return;
             }
 
-            // Update local state
             const newSeats = seats.map(s => 
-                s.id === seat.id ? updatedSeat : s
+                s.id === seat.id ? { ...s, ...updatedSeat } : s
             );
             onSeatsChange(newSeats);
         } catch (error) {
-            console.error('Error in handleSeatDragEnd:', error);
+            console.error('Error in handleDragEnd:', error);
             toast({
                 variant: "destructive",
                 title: "Error",
@@ -212,7 +161,6 @@ const SeatingPlanEditor = ({
         if (!draggedParticipant) return;
         
         try {
-            // Update the seat in Supabase
             const { error } = await supabase
                 .from('participants')
                 .update({ seat_id: seat.id })
@@ -220,7 +168,6 @@ const SeatingPlanEditor = ({
 
             if (error) throw error;
 
-            // Update local state
             const updatedSeats = seats.map(s => 
                 s.id === seat.id 
                     ? { ...s, occupant_id: draggedParticipant.id }
@@ -250,22 +197,21 @@ const SeatingPlanEditor = ({
     const autoArrangeSeats = async () => {
         try {
             const tables = Array.from(new Set(seats.map(s => s.row_number)));
-            const spacing = TABLE_SIZE * 3; // Space between tables
+            const spacing = TABLE_SIZE * 3; 
             
             let updatedSeats = [...seats];
             tables.forEach((tableNumber, tableIndex) => {
                 const tableSeats = seats.filter(s => s.row_number === tableNumber);
-                const row = Math.floor(tableIndex / 3); // 3 tables per row
+                const row = Math.floor(tableIndex / 3); 
                 const col = tableIndex % 3;
                 
                 const tableX = (col * spacing) + spacing;
                 const tableY = (row * spacing) + spacing;
                 
-                // Update positions for all seats at this table
                 tableSeats.forEach((seat, seatIndex) => {
                     const angleStep = (2 * Math.PI) / tableSeats.length;
-                    const angle = seatIndex * angleStep - Math.PI / 2; // Start from top
-                    const radius = TABLE_SIZE / 2 + 30; // Distance from table center to seat
+                    const angle = seatIndex * angleStep - Math.PI / 2; 
+                    const radius = TABLE_SIZE / 2 + 30; 
                     
                     const seatX = tableX + radius * Math.cos(angle);
                     const seatY = tableY + radius * Math.sin(angle);
@@ -281,20 +227,21 @@ const SeatingPlanEditor = ({
                 });
             });
             
-            // Update all seats at once
             const { error } = await supabase
                 .from('seats')
                 .upsert(
                     updatedSeats.map(seat => ({
                         id: seat.id,
                         x_position: seat.x_position,
-                        y_position: seat.y_position
+                        y_position: seat.y_position,
+                        event_id: seat.event_id,
+                        row_number: seat.row_number,
+                        seat_number: seat.seat_number
                     }))
                 );
 
             if (error) throw error;
             
-            // Update local state
             onSeatsChange(updatedSeats);
             
             toast({
@@ -316,19 +263,16 @@ const SeatingPlanEditor = ({
             const newTableNumber = Math.max(...seats.map(s => s.row_number), 0) + 1;
             const newSeatsCount = 6;
             
-            // Calculate position for the new table
             const tableX = 300;
             const tableY = 300;
-            const radius = 100; // Radius around the table
+            const radius = 100; 
             
             const newSeats = [];
             
-            // Create seats around the table
             for (let i = 0; i < newSeatsCount; i++) {
                 const angle = (i * 360) / newSeatsCount;
                 const angleRad = (angle * Math.PI) / 180;
                 
-                // Calculate seat position
                 const seatX = tableX + radius * Math.cos(angleRad);
                 const seatY = tableY + radius * Math.sin(angleRad);
                 
@@ -347,15 +291,7 @@ const SeatingPlanEditor = ({
             
             const { data, error } = await supabase
                 .from('seats')
-                .insert([{
-                    event_id: eventId,
-                    row_number: newTableNumber,
-                    seat_number: 1,
-                    status: 'available',
-                    x_position: 0,
-                    y_position: 0,
-                    occupant_id: null
-                }])
+                .insert(newSeats)
                 .select('*');
 
             if (error) {
@@ -381,7 +317,6 @@ const SeatingPlanEditor = ({
 
     const deleteTable = async (tableNumber: number) => {
         try {
-            // Delete the seats from Supabase
             const { error } = await supabase
                 .from('seats')
                 .delete()
@@ -398,7 +333,6 @@ const SeatingPlanEditor = ({
                 return;
             }
 
-            // Update local state
             const updatedSeats = seats.filter(seat => seat.row_number !== tableNumber);
             onSeatsChange(updatedSeats);
             toast({
@@ -453,83 +387,39 @@ const SeatingPlanEditor = ({
         const isSelected = selectedTable === tableNumber;
         
         return (
-            <Group 
+            <TableComponent 
                 key={`table-${tableNumber}`} 
-                x={tableX} 
-                y={tableY}
-                draggable
-                onDragMove={(e) => {
-                    const pos = e.target.position();
-                    const updatedSeats = tableSeats.map(seat => ({
-                        ...seat,
-                        x_position: seat.x_position + (pos.x - tableX),
-                        y_position: seat.y_position + (pos.y - tableY)
-                    }));
-                    onSeatsChange(seats.map(s => 
-                        updatedSeats.find(us => us.id === s.id) || s
-                    ));
-                }}
-                onDragEnd={(e) => {
-                    const pos = e.target.position();
-                    const updatedSeats = tableSeats.map(seat => ({
-                        ...seat,
-                        x_position: snapToGrid(seat.x_position + (pos.x - tableX)),
-                        y_position: snapToGrid(seat.y_position + (pos.y - tableY))
-                    }));
-                    onSeatsChange(seats.map(s => 
-                        updatedSeats.find(us => us.id === s.id) || s
-                    ));
-                    // Reset the group position since we updated the actual coordinates
-                    e.target.position({ x: tableX, y: tableY });
-                }}
-            >
-                <Circle
-                    radius={TABLE_SIZE / 2}
-                    fill="#f3f4f6"
-                    stroke={isSelected ? "#2563eb" : "#d1d5db"}
-                    strokeWidth={2}
-                    onClick={() => setSelectedTable(tableNumber)}
-                />
-                
-                <Text
-                    text={`Table ${tableNumber}`}
-                    fontSize={14}
-                    fontStyle="bold"
-                    fill="#374151"
-                    x={-30}
-                    y={-10}
-                    width={60}
-                    align="center"
-                />
-            </Group>
+                tableNumber={tableNumber} 
+                tableX={tableX} 
+                tableY={tableY} 
+                isSelected={isSelected} 
+                tableSize={TABLE_SIZE} 
+                onTableClick={setSelectedTable}
+            />
         );
     };
 
-    // Add debounced update function
     const debouncedUpdate = useCallback(
         debounce(async (updatedSeats: Seat[]) => {
             const updates = updatedSeats.map(seat => ({
                 id: seat.id,
                 event_id: eventId,
+                row_number: seat.row_number,
+                seat_number: seat.seat_number,
                 x_position: seat.x_position,
-                y_position: seat.y_position,
-                table_number: seat.row_number, // שמירה על מספר השולחן
-                seat_number: seat.seat_number // שמירה על מספר המושב
+                y_position: seat.y_position
             }));
 
             try {
                 const { error } = await supabase
                     .from('seats')
-                    .upsert(updates, { 
-                        onConflict: 'id'
-                    });
+                    .upsert(updates);
 
                 if (error) {
                     console.error('Error updating seats:', error);
                     return;
                 }
 
-                // עדכון ה-UI רק אם העדכון בדאטהבייס הצליח
                 onSeatsChange(updatedSeats);
             } catch (error) {
                 console.error('Failed to update seats:', error);
@@ -538,14 +428,12 @@ const SeatingPlanEditor = ({
         []
     );
 
-    // Update useEffect to handle batch updates
     useEffect(() => {
         if (seats.length > 0) {
             debouncedUpdate(seats);
         }
     }, [seats]);
 
-    // Container size update effect
     useEffect(() => {
         const updateContainerSize = () => {
             if (containerRef.current) {
@@ -555,7 +443,6 @@ const SeatingPlanEditor = ({
                     height: clientHeight
                 });
                 
-                // Calculate appropriate scale based on number of tables
                 const numTables = [...new Set(seats.map(s => s.row_number))].length;
                 const minDimension = Math.min(clientWidth, clientHeight);
                 const idealTableSize = minDimension / (Math.ceil(Math.sqrt(numTables)) + 1);
@@ -568,40 +455,6 @@ const SeatingPlanEditor = ({
         window.addEventListener('resize', updateContainerSize);
         return () => window.removeEventListener('resize', updateContainerSize);
     }, [seats]);
-
-    const Grid = () => {
-        const lines = [];
-        const numLinesX = Math.ceil(containerSize.width / (GRID_SIZE * stageScale));
-        const numLinesY = Math.ceil(containerSize.height / (GRID_SIZE * stageScale));
-
-        // Vertical lines
-        for (let i = 0; i <= numLinesX; i++) {
-            lines.push(
-                <Line
-                    key={`v${i}`}
-                    points={[i * GRID_SIZE, 0, i * GRID_SIZE, containerSize.height]}
-                    stroke={GRID_COLOR}
-                    strokeWidth={1}
-                    opacity={GRID_OPACITY}
-                />
-            );
-        }
-
-        // Horizontal lines
-        for (let i = 0; i <= numLinesY; i++) {
-            lines.push(
-                <Line
-                    key={`h${i}`}
-                    points={[0, i * GRID_SIZE, containerSize.width, i * GRID_SIZE]}
-                    stroke={GRID_COLOR}
-                    strokeWidth={1}
-                    opacity={GRID_OPACITY}
-                />
-            );
-        }
-
-        return <>{lines}</>;
-    };
 
     return (
         <div ref={containerRef} style={{ width: '100%', height: '100%', minHeight: '600px' }}>
@@ -714,54 +567,28 @@ const SeatingPlanEditor = ({
                         onWheel={handleWheel}
                     >
                         <Layer>
-                            {showGrid && <Grid />}
-                            {/* Tables */}
+                            {showGrid && <GridComponent width={containerSize.width} height={containerSize.height} cellSize={GRID_SIZE} color={GRID_COLOR} opacity={GRID_OPACITY} />}
                             {Array.from(new Set(seats.map(seat => seat.row_number))).map(tableNumber => {
                                 const tableSeats = seats.filter(seat => seat.row_number === tableNumber);
                                 return renderTable(tableNumber, tableSeats);
                             })}
 
-                            {/* Seats */}
                             {seats.map((seat) => {
                                 const isAssigned = participants.some(p => p.seat_id === seat.id)
                                 const assignedParticipant = participants.find(p => p.seat_id === seat.id)
 
                                 return (
-                                    <Group
+                                    <SeatComponent
                                         key={seat.id}
-                                        x={seat.x_position}
-                                        y={seat.y_position}
-                                        draggable
-                                        onDragMove={(e) => handleDragMove(seat, e)}
-                                        onDragEnd={(e) => handleDragEnd(seat, e)}
-                                        onDragOver={(e) => handleDragMovePreventDefault(seat, e)}
-                                        onDrop={() => handleParticipantDrop(seat)}
-                                    >
-                                        <Circle
-                                            radius={SEAT_SIZE / 2}
-                                            fill={isAssigned ? "#22c55e" : "white"}
-                                            stroke={draggedParticipant && !isAssigned ? "#2563eb" : "#e5e7eb"}
-                                            strokeWidth={2}
-                                        />
-                                        <Text
-                                            text={`${seat.row_number}-${seat.seat_number}`}
-                                            fontSize={12}
-                                            fill="#666"
-                                            x={-15}
-                                            y={-8}
-                                        />
-                                        {assignedParticipant && (
-                                            <Text
-                                                text={assignedParticipant.name}
-                                                fontSize={10}
-                                                fill="white"
-                                                x={-20}
-                                                y={8}
-                                                width={40}
-                                                align="center"
-                                            />
-                                        )}
-                                    </Group>
+                                        seat={seat}
+                                        isAssigned={isAssigned}
+                                        assignedParticipant={assignedParticipant}
+                                        seatSize={SEAT_SIZE}
+                                        onDragMove={handleDragMove}
+                                        onDragEnd={handleDragEnd}
+                                        onDrop={handleParticipantDrop}
+                                        draggedParticipant={draggedParticipant}
+                                    />
                                 )
                             })}
                         </Layer>
