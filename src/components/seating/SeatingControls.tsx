@@ -2,7 +2,6 @@ import { Button } from '../ui/button'
 import { Switch } from '../ui/switch'
 import { Label } from '../ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
-import { Input } from '../ui/input'
 
 interface SeatingControlsProps {
     showGrid: boolean
@@ -10,10 +9,6 @@ interface SeatingControlsProps {
     setAutoArrange: (arrange: boolean) => void
     isAddingTable: boolean
     setIsAddingTable: (adding: boolean) => void
-    newTableNumber: number
-    setNewTableNumber: (number: number) => void
-    newSeatsCount: number
-    setNewSeatsCount: (count: number) => void
     addNewTable: () => Promise<void>
 }
 
@@ -23,10 +18,6 @@ export const SeatingControls = ({
     setAutoArrange,
     isAddingTable,
     setIsAddingTable,
-    newTableNumber,
-    setNewTableNumber,
-    newSeatsCount,
-    setNewSeatsCount,
     addNewTable
 }: SeatingControlsProps) => {
     return (
@@ -40,45 +31,17 @@ export const SeatingControls = ({
             </div>
             <Button
                 onClick={() => setAutoArrange(true)}
-                className="w-full"
+                className="w-full bg-primary"
             >
-                Auto-arrange seats
+                Auto-arrange Restaurant Layout
             </Button>
             <Button 
                 variant="outline" 
-                onClick={() => setIsAddingTable(true)}
+                onClick={addNewTable}
+                className="w-full"
             >
-                Add Table
+                Add Table (6 seats)
             </Button>
-
-            {isAddingTable && (
-                <Card className="p-4 space-y-4">
-                    <CardHeader>
-                        <CardTitle>Add New Table</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label>Table Number</Label>
-                                <Input
-                                    type="number"
-                                    value={newTableNumber}
-                                    onChange={(e) => setNewTableNumber(parseInt(e.target.value))}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Number of Seats</Label>
-                                <Input
-                                    type="number"
-                                    value={newSeatsCount}
-                                    onChange={(e) => setNewSeatsCount(parseInt(e.target.value))}
-                                />
-                            </div>
-                            <Button onClick={addNewTable}>Create Table</Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
         </div>
     )
 }
