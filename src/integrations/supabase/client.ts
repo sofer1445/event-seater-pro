@@ -1,26 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// Debug information
-console.log('Environment Variables Status:')
-console.log('VITE_SUPABASE_URL:', supabaseUrl)
-console.log('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey)
+const supabaseUrl = 'https://tzqmiadrwojsfdbhaaoz.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR6cW1pYWRyd29qc2ZkYmhhYW96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDk4MzI0NzcsImV4cCI6MjAyNTQwODQ3N30.RqOyoXZGh3TkQkf4TGdDxQwFtGP1_qXGE6_dQZvNcbY';
 
 if (!supabaseUrl) {
-    throw new Error(
-        'VITE_SUPABASE_URL is not properly configured. ' +
-        'Please set it in your .env file with your actual Supabase project URL'
-    )
+  throw new Error('Supabase URL is not configured');
 }
 
 if (!supabaseAnonKey) {
-    throw new Error(
-        'VITE_SUPABASE_ANON_KEY is not properly configured. ' +
-        'Please set it in your .env file with your actual Supabase anon key'
-    )
+  throw new Error('Supabase Anon Key is not configured');
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
