@@ -23,7 +23,7 @@ import { toast, useToast } from './ui/use-toast'
 import { cn } from '../lib/utils'
 import { Switch } from './ui/switch'
 import { Badge } from './ui/badge'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../integrations/supabase/client'
 import { debounce } from 'lodash'
 
 interface Props {
