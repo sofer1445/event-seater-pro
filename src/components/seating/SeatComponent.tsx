@@ -1,55 +1,56 @@
 import { Circle, Group, Text } from 'react-konva';
-import { Participant, Seat } from '../../types';
+import { Participant, Seat } from '@/types';
 
 interface SeatComponentProps {
     seat: Seat;
-    isAssigned: boolean;
-    assignedParticipant?: Participant;
-    seatSize: number;
-    onDragMove: (seat: Seat, e: any) => void;
-    onDragEnd: (seat: Seat, e: any) => void;
-    onDrop: (seat: Seat) => void;
-    draggedParticipant: Participant | null;
+    participant?: Participant;
+    isHighlighted: boolean;
+    size: number;
+    onDragMove: (e: any) => void;
+    onDragEnd: (e: any) => void;
+    onParticipantDrop: (e: any) => void;
+    isDraggingParticipant: boolean;
 }
 
 export const SeatComponent = ({
     seat,
-    isAssigned,
-    assignedParticipant,
-    seatSize,
+    participant,
+    isHighlighted,
+    size,
     onDragMove,
     onDragEnd,
-    onDrop,
-    draggedParticipant
+    onParticipantDrop,
+    isDraggingParticipant
 }: SeatComponentProps) => {
     return (
         <Group
-            key={seat.id}
             x={seat.x_position}
             y={seat.y_position}
             draggable
-            onDragMove={(e) => onDragMove(seat, e)}
-            onDragEnd={(e) => onDragEnd(seat, e)}
-            onDrop={() => onDrop(seat)}
+            onDragMove={onDragMove}
+            onDragEnd={onDragEnd}
+            onDrop={onParticipantDrop}
         >
             <Circle
-                radius={seatSize / 2}
-                fill={isAssigned ? "#22c55e" : "white"}
-                stroke={draggedParticipant && !isAssigned ? "#2563eb" : "#e5e7eb"}
+                radius={size / 2}
+                fill={participant ? "#f3f4f6" : "white"}
+                stroke={isDraggingParticipant && !participant ? "#2563eb" : isHighlighted ? "#2563eb" : "#d1d5db"}
                 strokeWidth={2}
             />
             <Text
-                text={`${seat.row_number}-${seat.seat_number}`}
+                text={`${seat.table_number}-${seat.seat_number}`}
                 fontSize={12}
-                fill="#666"
+                fill="#374151"
                 x={-15}
                 y={-8}
+                width={30}
+                align="center"
             />
-            {assignedParticipant && (
+            {participant && (
                 <Text
-                    text={assignedParticipant.name}
+                    text={participant.name}
                     fontSize={10}
-                    fill="white"
+                    fill="#6b7280"
                     x={-20}
                     y={8}
                     width={40}

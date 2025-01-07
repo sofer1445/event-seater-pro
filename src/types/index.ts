@@ -12,14 +12,14 @@ export interface Event {
 export interface Seat {
     id: string;
     event_id: string;
-    row_number: number;
+    table_number: number;
     seat_number: number;
-    status: string;
     x_position: number;
     y_position: number;
     occupant_id?: string;
-    created_at: string;
-    updated_at: string;
+    status: 'available' | 'occupied';
+    created_at?: string;
+    updated_at?: string;
 }
 
 export interface Participant {

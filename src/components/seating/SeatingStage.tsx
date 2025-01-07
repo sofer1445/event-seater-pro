@@ -1,10 +1,12 @@
-import { Stage, Layer } from 'react-konva'
+import { Stage, Layer, Group } from 'react-konva'
+import Konva from 'konva'
 import { Seat, Participant } from '@/types'
 import { TableComponent } from './TableComponent'
 import { SeatComponent } from './SeatComponent'
 import { GridComponent } from './GridComponent'
+import { forwardRef, MutableRefObject } from 'react'
 
-interface SeatingStageProps {
+export interface SeatingStageProps {
     containerSize: { width: number; height: number }
     stageScale: number
     stagePosition: { x: number; y: number }
@@ -20,15 +22,18 @@ interface SeatingStageProps {
     setSelectedTable: (tableNumber: number | null) => void
     handleSeatDragMove: (seat: Seat, e: any) => void
     handleSeatDragEnd: (seat: Seat, e: any) => void
-    handleParticipantDrop: (seat: Seat) => void
-    handleTableDragMove: (tableNumber: number, e: any) => void
-    handleTableDragEnd: (tableNumber: number, e: any) => void
+    handleParticipantDrop: (e: any) => void
+    handleTableDragMove: (e: any) => void
+    handleTableDragEnd: (e: any) => void
     handleWheel: (e: any) => void
     handleStageDragEnd: (e: any) => void
-    stageRef: any
+    handleStageDragMove: (e: any) => void
+    stageRef: MutableRefObject<any>
+    onSeatsChange: (seats: Seat[]) => void
+    onSeatAssign: (participantId: string, seatId: string) => Promise<void>
 }
 
-export const SeatingStage = ({
+export const SeatingStage = forwardRef<Konva.Stage | null, SeatingStageProps>(({
     containerSize,
     stageScale,
     stagePosition,
@@ -49,80 +54,89 @@ export const SeatingStage = ({
     handleTableDragEnd,
     handleWheel,
     handleStageDragEnd,
-    stageRef
-}: SeatingStageProps) => {
-    const calculateTablePosition = (tableNumber: number) => {
-        const numTables = [...new Set(seats.map(s => s.row_number))].length;
-        const tablesPerRow = Math.ceil(Math.sqrt(numTables));
-        const spacing = 120 * 2; // TABLE_SIZE * 2
-        
-        const row = Math.floor((tableNumber - 1) / tablesPerRow);
-        const col = (tableNumber - 1) % tablesPerRow;
-        
-        return {
-            x: (col * spacing) + spacing,
-            y: (row * spacing) + spacing
-        };
-    };
+    handleStageDragMove,
+    stageRef,
+}, ref) => {
+    // Group seats by table
+    const tableSeats = seats.reduce((acc, seat) => {
+        if (!acc[seat.table_number]) {
+            acc[seat.table_number] = [];
+        }
+        acc[seat.table_number].push(seat);
+        return acc;
+    }, {} as { [key: string]: Seat[] });
 
     return (
         <Stage
-            ref={stageRef}
             width={containerSize.width}
             height={containerSize.height}
-            scale={{ x: stageScale, y: stageScale }}
-            position={stagePosition}
+            ref={(node) => {
+                stageRef.current = node;
+                if (typeof ref === 'function') {
+                    ref(node);
+                } else if (ref) {
+                    ref.current = node;
+                }
+            }}
+            scaleX={stageScale}
+            scaleY={stageScale}
+            x={stagePosition.x}
+            y={stagePosition.y}
             draggable
             onDragEnd={handleStageDragEnd}
+            onDragMove={handleStageDragMove}
             onWheel={handleWheel}
+            style={{ touchAction: 'none' }}
         >
             <Layer>
                 {showGrid && (
-                    <GridComponent 
-                        width={containerSize.width} 
-                        height={containerSize.height} 
-                        cellSize={GRID_SIZE} 
-                        color={GRID_COLOR} 
-                        opacity={GRID_OPACITY} 
+                    <GridComponent
+                        width={containerSize.width}
+                        height={containerSize.height}
+                        cellSize={GRID_SIZE}
+                        color={GRID_COLOR}
+                        opacity={GRID_OPACITY}
                     />
                 )}
-                
-                {Array.from(new Set(seats.map(seat => seat.row_number))).map(tableNumber => {
-                    const { x: tableX, y: tableY } = calculateTablePosition(tableNumber);
+
+                {/* Render Tables with Seats */}
+                {Object.entries(tableSeats).map(([tableId, tableSeats]) => {
+                    const firstSeat = tableSeats[0];
                     return (
                         <TableComponent
-                            key={`table-${tableNumber}`}
-                            tableNumber={tableNumber}
-                            tableX={tableX}
-                            tableY={tableY}
-                            isSelected={selectedTable === tableNumber}
-                            tableSize={120}
-                            onTableClick={setSelectedTable}
-                            onDragMove={(e) => handleTableDragMove(tableNumber, e)}
-                            onDragEnd={(e) => handleTableDragEnd(tableNumber, e)}
+                            key={tableId}
+                            x={firstSeat.x_position}
+                            y={firstSeat.y_position}
+                            seats={tableSeats}
+                            tableNumber={parseInt(tableId)}
+                            selected={selectedTable === parseInt(tableId)}
+                            onDragMove={handleTableDragMove}
+                            onDragEnd={handleTableDragEnd}
+                            onClick={() => setSelectedTable(parseInt(tableId))}
+                            width={240}
+                            height={160}
                         />
                     );
                 })}
 
-                {seats.map((seat) => {
-                    const isAssigned = participants.some(p => p.seat_id === seat.id)
-                    const assignedParticipant = participants.find(p => p.seat_id === seat.id)
-
-                    return (
-                        <SeatComponent
-                            key={seat.id}
-                            seat={seat}
-                            isAssigned={isAssigned}
-                            assignedParticipant={assignedParticipant}
-                            seatSize={SEAT_SIZE}
-                            onDragMove={handleSeatDragMove}
-                            onDragEnd={handleSeatDragEnd}
-                            onDrop={handleParticipantDrop}
-                            draggedParticipant={draggedParticipant}
-                        />
-                    )
-                })}
+                {/* Render Seat Assignment Areas */}
+                {draggedParticipant && (
+                    <Group>
+                        {seats.map((seat) => (
+                            <SeatComponent
+                                key={seat.id}
+                                seat={seat}
+                                onDragMove={(e) => handleSeatDragMove(seat, e)}
+                                onDragEnd={(e) => handleSeatDragEnd(seat, e)}
+                                onParticipantDrop={handleParticipantDrop}
+                                size={SEAT_SIZE}
+                                isDraggingParticipant={true}
+                                isHighlighted={false}
+                            />
+                        ))}
+                    </Group>
+                )}
             </Layer>
         </Stage>
-    )
-}
+    );
+});

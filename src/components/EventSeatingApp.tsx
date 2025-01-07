@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react'
-import { Event, Participant, Seat } from '../types'
+import { Event, Participant, Seat } from '../types/index'
 import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { useToast } from './ui/use-toast'
+import { SeatingPlanEditor } from './SeatingPlanEditor'
 
 export default function EventSeatingApp() {
     const supabase = useSupabaseClient()
@@ -22,6 +23,38 @@ export default function EventSeatingApp() {
             loadEvents()
         }
     }, [user])
+
+    // Memoize the participants change handler
+    const handleParticipantsChange = useCallback((newParticipants: Participant[]) => {
+        console.log('🔄 EventSeatingApp: handleParticipantsChange called with:', newParticipants)
+        setParticipants(newParticipants)
+    }, [setParticipants])
+
+    // Memoize the seat assignment handler
+    const handleSeatAssign = useCallback(async (participantId: string, seatId: string) => {
+        try {
+            console.log('🎯 Assigning seat in EventSeatingApp:', { participantId, seatId })
+            
+            const { error: updateError } = await supabase
+                .from('participants')
+                .update({ seat_id: seatId })
+                .eq('id', participantId)
+
+            if (updateError) throw updateError
+
+            toast({
+                title: 'הצלחה',
+                description: 'המיקום עודכן בהצלחה',
+            })
+        } catch (error: any) {
+            console.error('❌ Error updating seat:', error)
+            throw error
+        }
+    }, [supabase, toast])
+
+    useEffect(() => {
+        console.log('👥 EventSeatingApp: Participants updated:', participants)
+    }, [participants])
 
     const loadEvents = async () => {
         try {
@@ -75,33 +108,46 @@ export default function EventSeatingApp() {
 
     const loadEventDetails = async (event: Event) => {
         try {
+            console.log('🎯 Loading event details for:', event.id)
             setSelectedEvent(event)
-
+            
             // Load participants
+            console.log('📡 Fetching participants...')
             const { data: participantsData, error: participantsError } = await supabase
                 .from('participants')
                 .select('*')
                 .eq('event_id', event.id)
+            
+            console.log('📥 Participants data:', participantsData)
+            console.log('❌ Participants error:', participantsError)
 
             if (participantsError) throw participantsError
             setParticipants(participantsData || [])
 
             // Load seats
+            console.log('📡 Fetching seats...')
             const { data: seatsData, error: seatsError } = await supabase
                 .from('seats')
                 .select('*')
                 .eq('event_id', event.id)
+            
+            console.log('📥 Seats data:', seatsData)
+            console.log('❌ Seats error:', seatsError)
 
             if (seatsError) throw seatsError
             setSeats(seatsData || [])
-        } catch (error) {
+        } catch (error: any) {
             toast({
                 title: 'Error',
-                description: 'Failed to load event details',
+                description: 'Failed to load event details: ' + error.message,
                 variant: 'destructive',
             })
         }
     }
+
+    const handleSeatsChange = useCallback((newSeats: Seat[]) => {
+        setSeats(newSeats);
+    }, []);
 
     return (
         <div className="container mx-auto py-8">
@@ -209,8 +255,14 @@ export default function EventSeatingApp() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {/* TODO: Add SeatingPlanEditor component here */}
-                                <p>Seating plan editor will be implemented here</p>
+                                <SeatingPlanEditor
+                                    eventId={selectedEvent.id}
+                                    seats={seats}
+                                    participants={participants}
+                                    onSeatsChange={handleSeatsChange}
+                                    onParticipantsChange={handleParticipantsChange}
+                                    onSeatAssign={handleSeatAssign}
+                                />
                             </CardContent>
                         </Card>
                     </TabsContent>

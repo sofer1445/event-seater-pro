@@ -44,17 +44,19 @@ interface DatabaseEvent {
   seats: { 
     id: string;
     event_id: string;
-    row_number: number;
+    table_number: number;
     seat_number: number;
     status: string;
     occupant_id?: string;
     created_at: string;
     updated_at: string;
+    x_position: number;
+    y_position: number;
   }[];
 }
 
 const Index = () => {
-  console.log('🔄 Index: Component mounted');
+  console.log(' Index: Component mounted');
   const navigate = useNavigate();
   const [events, setEvents] = useState<ProcessedEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,13 +68,13 @@ const Index = () => {
     fetchEvents();
     const cleanup = subscribeToEvents();
     return () => {
-      console.log('🔄 Index: Component unmounting');
+      console.log(' Index: Component unmounting');
       cleanup();
     };
   }, []);
 
   const fetchEvents = async () => {
-    console.log('📡 Fetching events...');
+    console.log(' Fetching events...');
     try {
       const { data, error } = await supabase
         .from("events")
@@ -81,32 +83,35 @@ const Index = () => {
           seats (
             id,
             event_id,
-            row_number,
+            table_number,
             seat_number,
             status,
             occupant_id,
             created_at,
-            updated_at
+            updated_at,
+            x_position,
+            y_position
           )
         `)
         .order(sortBy === 'title' ? 'title' : 'date', { ascending: true });
 
-      console.log('📥 Raw events data:', data);
-      console.log('❌ Supabase error:', error);
+      console.log(' Raw events data:', data);
+      console.log(' Supabase error:', error);
 
       if (error) throw error;
 
-      console.log('🔍 Raw event data details:', data?.map(event => ({
+      console.log(' Raw event data details:', data?.map(event => ({
         id: event.id,
         title: event.title,
         date: event.date
       })));
 
+
       const processedEvents: ProcessedEvent[] = (data as unknown as DatabaseEvent[]).map((event) => {
-        console.log('🔄 Processing event:', event);
+        console.log(' Processing event:', event);
         
         if (!event.title) {
-          console.warn('⚠️ Event missing title:', event.id);
+          console.warn(' Event missing title:', event.id);
         }
 
         return {
@@ -121,11 +126,11 @@ const Index = () => {
         };
       });
 
-      console.log('✨ Processed events:', processedEvents);
+      console.log(' Processed events:', processedEvents);
       setEvents(processedEvents);
       setLoading(false);
     } catch (error) {
-      console.error('❌ Error fetching events:', error);
+      console.error(' Error fetching events:', error);
       toast.error("Error fetching events");
       setLoading(false);
     }
@@ -139,7 +144,7 @@ const Index = () => {
   };
 
   const subscribeToEvents = () => {
-    console.log('🔔 Setting up real-time subscription');
+    console.log(' Setting up real-time subscription');
     const channel = supabase
       .channel("events_channel")
       .on(
@@ -150,16 +155,16 @@ const Index = () => {
           table: "events",
         },
         (payload) => {
-          console.log('🔄 Real-time update received:', payload);
+          console.log(' Real-time update received:', payload);
           fetchEvents();
         }
       )
       .subscribe((status) => {
-        console.log('📡 Subscription status:', status);
+        console.log(' Subscription status:', status);
       });
 
     return () => {
-      console.log('🔔 Cleaning up subscription');
+      console.log(' Cleaning up subscription');
       supabase.removeChannel(channel);
     };
   };
@@ -171,7 +176,7 @@ const Index = () => {
       const descriptionMatch = event.description?.toLowerCase()?.includes(searchLower) ?? false;
       
       if (!titleMatch && !descriptionMatch) {
-        console.log('🔍 Event filtered out by search:', {
+        console.log(' Event filtered out by search:', {
           id: event.id,
           title: event.title,
           searchQuery: searchQuery
@@ -184,7 +189,7 @@ const Index = () => {
       const statusMatch = statusFilter === "all" ? true : event.status === statusFilter;
       
       if (!statusMatch) {
-        console.log('🔍 Event filtered out by status:', {
+        console.log(' Event filtered out by status:', {
           id: event.id,
           status: event.status,
           filterStatus: statusFilter
@@ -194,7 +199,7 @@ const Index = () => {
       return statusMatch;
     });
 
-  console.log('🔍 Filtered events:', {
+  console.log(' Filtered events:', {
     total: events.length,
     filtered: filteredEvents.length,
     searchQuery,
@@ -202,7 +207,7 @@ const Index = () => {
   });
 
   const handleDeleteEvent = async (eventId: string) => {
-    console.log('🗑️ Attempting to delete event:', eventId);
+    console.log(' Attempting to delete event:', eventId);
     try {
       const { error } = await supabase
         .from("events")
@@ -210,15 +215,15 @@ const Index = () => {
         .eq("id", eventId);
 
       if (error) {
-        console.error('❌ Error deleting event:', error);
+        console.error(' Error deleting event:', error);
         throw error;
       }
 
-      console.log('✅ Event deleted successfully:', eventId);
+      console.log(' Event deleted successfully:', eventId);
       toast.success("Event deleted successfully");
       fetchEvents();
     } catch (error) {
-      console.error('❌ Error in handleDeleteEvent:', error);
+      console.error(' Error in handleDeleteEvent:', error);
       toast.error("Error deleting event");
     }
   };
