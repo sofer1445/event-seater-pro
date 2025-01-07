@@ -16,9 +16,12 @@ interface Props {
 }
 
 const FIXED_SEATS_PER_TABLE = 6;
-const TABLE_SPACING = 200; // Space between tables
+const TABLE_SPACING = 200;
 const SEAT_RADIUS = 20;
 const TABLE_RADIUS = 60;
+const GRID_SIZE = 20;
+const GRID_COLOR = "#ddd";
+const GRID_OPACITY = 0.2;
 
 export function SeatingPlanEditor({
     eventId,
@@ -43,12 +46,94 @@ export function SeatingPlanEditor({
     const containerRef = useRef<HTMLDivElement>(null)
     const [containerSize, setContainerSize] = useState({ width: 800, height: 600 })
 
-    const filteredParticipants = participants.filter(participant => {
-        const matchesSearch = participant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            participant.email.toLowerCase().includes(searchQuery.toLowerCase())
-        const matchesFilter = showUnassignedOnly ? !participant.seat_id : true
-        return matchesSearch && matchesFilter
-    })
+    const handleWheel = (e: any) => {
+        e.evt.preventDefault();
+        const scaleBy = 1.1;
+        const stage = stageRef.current;
+        const oldScale = stageScale;
+        
+        const mousePointTo = {
+            x: stage.getPointerPosition().x / oldScale - stage.x() / oldScale,
+            y: stage.getPointerPosition().y / oldScale - stage.y() / oldScale,
+        };
+
+        const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
+        setStageScale(newScale);
+
+        const newPos = {
+            x: -(mousePointTo.x - stage.getPointerPosition().x / newScale) * newScale,
+            y: -(mousePointTo.y - stage.getPointerPosition().y / newScale) * newScale,
+        };
+        setStagePosition(newPos);
+    };
+
+    const handleStageDragEnd = (e: any) => {
+        setStagePosition({
+            x: e.target.x(),
+            y: e.target.y(),
+        });
+    };
+
+    const handleSeatDragMove = useCallback((seat: Seat, e: any) => {
+        const updatedSeats = seats.map(s => {
+            if (s.id === seat.id) {
+                return {
+                    ...s,
+                    x_position: Math.round(e.target.x()),
+                    y_position: Math.round(e.target.y()),
+                };
+            }
+            return s;
+        });
+        onSeatsChange(updatedSeats);
+    }, [seats, onSeatsChange]);
+
+    const handleSeatDragEnd = useCallback(async (seat: Seat, e: any) => {
+        try {
+            const { error } = await supabase
+                .from('seats')
+                .update({
+                    x_position: Math.round(e.target.x()),
+                    y_position: Math.round(e.target.y()),
+                })
+                .eq('id', seat.id);
+
+            if (error) throw error;
+            
+            toast({
+                title: "Success",
+                description: "Seat position updated"
+            });
+        } catch (error: any) {
+            console.error('Error updating seat position:', error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to update seat position"
+            });
+        }
+    }, [toast]);
+
+    const handleParticipantDrop = useCallback(async (seat: Seat) => {
+        if (!draggedParticipant) return;
+        
+        try {
+            await onSeatAssign(draggedParticipant.id, seat.id);
+            setDraggedParticipant(null);
+            
+            toast({
+                title: "Success",
+                description: `Assigned ${draggedParticipant.name} to seat ${seat.seat_number}`
+            });
+        } catch (error) {
+            console.error('Error assigning seat:', error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to assign seat"
+            });
+        }
+    }, [draggedParticipant, onSeatAssign, toast]);
 
     const addNewTable = async () => {
         try {
@@ -181,7 +266,12 @@ export function SeatingPlanEditor({
                         setSearchQuery={setSearchQuery}
                         showUnassignedOnly={showUnassignedOnly}
                         setShowUnassignedOnly={setShowUnassignedOnly}
-                        filteredParticipants={filteredParticipants}
+                        filteredParticipants={participants.filter(participant => {
+                            const matchesSearch = participant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                                participant.email.toLowerCase().includes(searchQuery.toLowerCase())
+                            const matchesFilter = showUnassignedOnly ? !participant.seat_id : true
+                            return matchesSearch && matchesFilter
+                        })}
                         setDraggedParticipant={setDraggedParticipant}
                         draggedParticipant={draggedParticipant}
                     />
@@ -204,10 +294,23 @@ export function SeatingPlanEditor({
                         seats={seats}
                         participants={participants}
                         draggedParticipant={draggedParticipant}
-                        SEAT_RADIUS={SEAT_RADIUS}
-                        TABLE_RADIUS={TABLE_RADIUS}
+                        GRID_SIZE={GRID_SIZE}
+                        GRID_COLOR={GRID_COLOR}
+                        GRID_OPACITY={GRID_OPACITY}
+                        SEAT_SIZE={SEAT_RADIUS * 2}
                         selectedTable={selectedTable}
                         setSelectedTable={setSelectedTable}
+                        handleSeatDragMove={handleSeatDragMove}
+                        handleSeatDragEnd={handleSeatDragEnd}
+                        handleParticipantDrop={handleParticipantDrop}
+                        handleTableDragMove={(tableNumber: number, e: any) => {
+                            // Implementation for table drag move
+                            console.log('Table drag move:', tableNumber, e);
+                        }}
+                        handleTableDragEnd={(tableNumber: number, e: any) => {
+                            // Implementation for table drag end
+                            console.log('Table drag end:', tableNumber, e);
+                        }}
                         handleWheel={handleWheel}
                         handleStageDragEnd={handleStageDragEnd}
                         stageRef={stageRef}

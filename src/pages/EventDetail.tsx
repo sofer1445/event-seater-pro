@@ -1,5 +1,5 @@
 import { SeatingMap } from "@/components/SeatingMap";
-import SeatingPlanEditor from "@/components/SeatingPlanEditor";
+import { SeatingPlanEditor } from "@/components/SeatingPlanEditor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Download, Mail, Users, Edit, Save, Grid2X2 } from "lucide-react";
@@ -269,3 +269,4 @@ const EventDetail = ({ isEditing = false }: EventDetailProps) => {
 };
 
 export default EventDetail;
+
