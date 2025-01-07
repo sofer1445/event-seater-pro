@@ -7,6 +7,9 @@ interface TableComponentProps {
     isSelected: boolean;
     tableSize: number;
     onTableClick: (tableNumber: number) => void;
+    draggable?: boolean;
+    onDragMove?: (e: any) => void;
+    onDragEnd?: (e: any) => void;
 }
 
 export const TableComponent = ({ 
@@ -15,12 +18,18 @@ export const TableComponent = ({
     tableY, 
     isSelected, 
     tableSize,
-    onTableClick 
+    onTableClick,
+    draggable = true,
+    onDragMove,
+    onDragEnd
 }: TableComponentProps) => {
     return (
         <Group 
             x={tableX} 
             y={tableY}
+            draggable={draggable}
+            onDragMove={onDragMove}
+            onDragEnd={onDragEnd}
             onClick={() => onTableClick(tableNumber)}
         >
             <Circle

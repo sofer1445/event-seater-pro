@@ -198,6 +198,8 @@ const SeatingPlanEditor = ({
         try {
             const tables = Array.from(new Set(seats.map(s => s.row_number)));
             const spacing = TABLE_SIZE * 3; 
+            const centerX = containerSize.width / 2;
+            const centerY = containerSize.height / 2;
             
             let updatedSeats = [...seats];
             tables.forEach((tableNumber, tableIndex) => {
@@ -205,8 +207,8 @@ const SeatingPlanEditor = ({
                 const row = Math.floor(tableIndex / 3); 
                 const col = tableIndex % 3;
                 
-                const tableX = (col * spacing) + spacing;
-                const tableY = (row * spacing) + spacing;
+                const tableX = centerX + (col - 1) * spacing;
+                const tableY = centerY + (row - 1) * spacing;
                 
                 tableSeats.forEach((seat, seatIndex) => {
                     const angleStep = (2 * Math.PI) / tableSeats.length;
@@ -395,6 +397,8 @@ const SeatingPlanEditor = ({
                 isSelected={isSelected} 
                 tableSize={TABLE_SIZE} 
                 onTableClick={setSelectedTable}
+                onDragMove={(e) => handleTableDragMove(tableNumber, e)}
+                onDragEnd={(e) => handleTableDragEnd(tableNumber, e)}
             />
         );
     };
