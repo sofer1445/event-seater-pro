@@ -403,6 +403,98 @@ const SeatingPlanEditor = ({
         );
     };
 
+    const handleTableDragMove = (tableNumber: number, e: any) => {
+        const node = e.target;
+        const newX = snapToGrid(node.x());
+        const newY = snapToGrid(node.y());
+        
+        node.position({
+            x: newX,
+            y: newY
+        });
+
+        // Update positions of all seats belonging to this table
+        const tableSeats = seats.filter(s => s.row_number === tableNumber);
+        const oldTablePos = calculateTablePosition(tableNumber);
+        const deltaX = newX - oldTablePos.x;
+        const deltaY = newY - oldTablePos.y;
+
+        const updatedSeats = seats.map(seat => {
+            if (seat.row_number === tableNumber) {
+                return {
+                    ...seat,
+                    x_position: seat.x_position + deltaX,
+                    y_position: seat.y_position + deltaY
+                };
+            }
+            return seat;
+        });
+
+        onSeatsChange(updatedSeats);
+    };
+
+    const handleTableDragEnd = async (tableNumber: number, e: any) => {
+        try {
+            const node = e.target;
+            const newX = snapToGrid(node.x());
+            const newY = snapToGrid(node.y());
+            
+            const tableSeats = seats.filter(s => s.row_number === tableNumber);
+            const oldTablePos = calculateTablePosition(tableNumber);
+            const deltaX = newX - oldTablePos.x;
+            const deltaY = newY - oldTablePos.y;
+
+            const updatedSeats = seats.map(seat => {
+                if (seat.row_number === tableNumber) {
+                    return {
+                        ...seat,
+                        x_position: seat.x_position + deltaX,
+                        y_position: seat.y_position + deltaY
+                    };
+                }
+                return seat;
+            });
+
+            const { error } = await supabase
+                .from('seats')
+                .upsert(
+                    updatedSeats
+                        .filter(seat => seat.row_number === tableNumber)
+                        .map(seat => ({
+                            id: seat.id,
+                            event_id: seat.event_id,
+                            row_number: seat.row_number,
+                            seat_number: seat.seat_number,
+                            x_position: seat.x_position,
+                            y_position: seat.y_position,
+                        }))
+                );
+
+            if (error) {
+                toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: "Failed to update table position"
+                });
+                return;
+            }
+
+            onSeatsChange(updatedSeats);
+            
+            toast({
+                title: "Success",
+                description: `Updated table ${tableNumber} position`
+            });
+        } catch (error) {
+            console.error('Error in handleTableDragEnd:', error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to update table position"
+            });
+        }
+    };
+
     const debouncedUpdate = useCallback(
         debounce(async (updatedSeats: Seat[]) => {
             const updates = updatedSeats.map(seat => ({
