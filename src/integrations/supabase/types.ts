@@ -45,6 +45,57 @@ export type Database = {
         }
         Relationships: []
       }
+      participants: {
+        Row: {
+          created_at: string | null
+          email: string
+          event_id: string | null
+          id: string
+          name: string
+          seat_id: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          event_id?: string | null
+          id?: string
+          name: string
+          seat_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          event_id?: string | null
+          id?: string
+          name?: string
+          seat_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participants_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "participants_seat_id_fkey"
+            columns: ["seat_id"]
+            isOneToOne: false
+            referencedRelation: "seats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -76,6 +127,8 @@ export type Database = {
           seat_number: number
           status: string | null
           updated_at: string
+          x_position: number | null
+          y_position: number | null
         }
         Insert: {
           created_at?: string
@@ -86,6 +139,8 @@ export type Database = {
           seat_number: number
           status?: string | null
           updated_at?: string
+          x_position?: number | null
+          y_position?: number | null
         }
         Update: {
           created_at?: string
@@ -96,6 +151,8 @@ export type Database = {
           seat_number?: number
           status?: string | null
           updated_at?: string
+          x_position?: number | null
+          y_position?: number | null
         }
         Relationships: [
           {
@@ -105,64 +162,6 @@ export type Database = {
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      participants: {
-        Row: {
-          id: string
-          event_id: string
-          user_id: string | null
-          name: string
-          email: string
-          seat_id: string | null
-          status: 'pending' | 'confirmed' | 'declined'
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          event_id: string
-          user_id?: string | null
-          name: string
-          email: string
-          seat_id?: string | null
-          status?: 'pending' | 'confirmed' | 'declined'
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          event_id?: string
-          user_id?: string | null
-          name?: string
-          email?: string
-          seat_id?: string | null
-          status?: 'pending' | 'confirmed' | 'declined'
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "participants_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "participants_seat_id_fkey"
-            columns: ["seat_id"]
-            isOneToOne: false
-            referencedRelation: "seats"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "participants_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
         ]
       }
     }
