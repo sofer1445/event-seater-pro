@@ -214,9 +214,9 @@ const SeatingPlanEditor = ({
         try {
             // Update the seat in Supabase
             const { error } = await supabase
-                .from('seats')
-                .update({ occupant_id: draggedParticipant.id })
-                .eq('id', seat.id);
+                .from('participants')
+                .update({ seat_id: seat.id })
+                .eq('id', draggedParticipant.id);
 
             if (error) throw error;
 
