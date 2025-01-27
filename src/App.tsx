@@ -1,14 +1,16 @@
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import React, { useEffect, useState } from "react";
+import { Toaster } from "@/components/ui/toaster";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import Index from "./pages/Index";
-import EventDetail from "./pages/EventDetail";
-import EventNew from "./pages/EventNew";
-import Login from "./pages/Login";
-import EventSeatingApp from "./components/EventSeatingApp";
+import { Sidebar } from "@/components/layout/Sidebar";
+
+// Lazy load pages
+const Dashboard = React.lazy(() => import("./pages/Dashboard"));
+const Employees = React.lazy(() => import("./pages/Employees"));
+const Workspaces = React.lazy(() => import("./pages/Workspaces"));
+const Allocations = React.lazy(() => import("./pages/Allocations"));
+const Login = React.lazy(() => import("./pages/Login"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,58 +47,39 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Sonner />
-      <BrowserRouter basename="/">
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Index />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/event/new"
-            element={
-              <ProtectedRoute>
-                <EventNew />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/event/:id"
-            element={
-              <ProtectedRoute>
-                <EventDetail />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/event/:id/edit"
-            element={
-              <ProtectedRoute>
-                <EventDetail isEditing={true} />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/event/seating"
-            element={
-              <ProtectedRoute>
-                <EventSeatingApp />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <div className="flex h-screen bg-gray-100">
+          <Toaster />
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <Sidebar />
+                  <main className="flex-1 overflow-auto p-8 pl-72">
+                    <React.Suspense fallback={<div>Loading...</div>}>
+                      <Routes>
+                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="/dashboard" element={<Dashboard />} />
+                        <Route path="/employees" element={<Employees />} />
+                        <Route path="/workspaces" element={<Workspaces />} />
+                        <Route path="/allocations" element={<Allocations />} />
+                      </Routes>
+                    </React.Suspense>
+                  </main>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </div>
       </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+    </QueryClientProvider>
+  );
+};
 
 export default App;
