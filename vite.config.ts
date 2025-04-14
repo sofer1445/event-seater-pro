@@ -16,4 +16,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  define: {
+    'import.meta.env.VITE_SERVER_URL': JSON.stringify('http://localhost:4000')
+  }
 });

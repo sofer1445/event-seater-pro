@@ -6,26 +6,38 @@ export interface WorkspaceFeatures {
     additionalFeatures?: string[];
 }
 
+export interface WorkspaceRestrictions {
+    genderRestriction: 'male' | 'female' | 'none';
+    religiousOnly: boolean;
+}
+
 export interface Workspace {
-  id: string;
-  created_at: string;
-  updated_at: string;
-  name: string;
-  room: string;
-  floor: number;
-  features: string[]; // ['standing_desk', 'monitor', 'keyboard']
-  restrictions: string[]; // ['no_food', 'quiet_zone']
-  coordinates: {
-    x: number;
-    y: number;
-  };
+    id: string;
+    name: string;
+    roomId: string;
+    number?: string;
+    floor?: number;
+    features: WorkspaceFeatures;
+    restrictions: WorkspaceRestrictions;
+    coordinates: {
+        x: number;
+        y: number;
+    };
+    capacity: number;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface Room {
-    id: string;
-    name: string;
-    floor: number;
-    gender_restriction?: 'male_only' | 'female_only' | null;
-    capacity: number;
-    description?: string;
+  id: string;
+  name: string;
+  floor: number;
+  capacity: number;
+  description?: string;
+  gender_restriction?: 'male' | 'female' | null;
+  religious_only?: boolean;
+  features: string[];
+  coordinates: { x: number; y: number };
+  created_at: string;
+  updated_at: string;
 }

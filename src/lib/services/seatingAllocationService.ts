@@ -1,6 +1,7 @@
 import { Employee, Gender, ReligiousLevel } from '@/types/employee';
 import { Workspace, Room } from '@/types/workspace';
 import { Allocation } from '@/types/allocation';
+import { getEmployees, getWorkspaces, getRooms, getAllocations, createAllocation } from '../api/apiClient';
 
 interface SeatingConstraints {
   gender: boolean;
@@ -21,6 +22,12 @@ export class SeatingAllocationService {
     employees: Employee[],
     workspaces: Workspace[]
   ): { compatible: boolean; constraints: SeatingConstraints } {
+    console.log('Checking workspace compatibility:', {
+      employee: employee.id,
+      workspace: workspace.id,
+      room: room.id
+    });
+
     const constraints: SeatingConstraints = {
       gender: true,
       religious: true,
@@ -30,15 +37,27 @@ export class SeatingAllocationService {
 
     // בדיקת אילוצי מגדר
     if (room.gender_restriction) {
+      console.log('Checking gender constraints:', {
+        employeeGender: employee.gender,
+        roomRestriction: room.gender_restriction
+      });
       constraints.gender = room.gender_restriction === `${employee.gender}_only`;
     }
 
     // בדיקת אילוצים דתיים
     if (employee.religious_level === 'orthodox') {
+      console.log('Checking religious constraints:', {
+        employeeLevel: employee.religious_level,
+        roomGenderRestriction: room.gender_restriction
+      });
       // חרדים יושבים רק בחדרים עם הגבלת מגדר מתאימה
       constraints.religious = !!room.gender_restriction && 
         room.gender_restriction === `${employee.gender}_only`;
     } else if (employee.religious_level === 'religious') {
+      console.log('Checking religious constraints:', {
+        employeeLevel: employee.religious_level,
+        roomGenderRestriction: room.gender_restriction
+      });
       // דתיים לא יושבים ליד המגדר השני
       const nearbyAllocations = existingAllocations.filter(allocation => 
         this.isNearby(workspace, allocation.workspace_id, workspaces)
@@ -132,7 +151,7 @@ export class SeatingAllocationService {
   ): { workspace: Workspace; score: number }[] {
     const compatibleWorkspaces = workspaces
       .map(workspace => {
-        const room = rooms.find(r => r.id === workspace.room);
+        const room = rooms.find(r => r.id === workspace.room_id);
         if (!room) return null;
 
         const { compatible, constraints } = this.isWorkspaceCompatible(
@@ -185,5 +204,58 @@ export class SeatingAllocationService {
     });
 
     return score;
+  }
+
+  /**
+   * הקצאה אוטומטית של מקומות ישיבה
+   */
+  static async allocateSeats(
+    employees: Employee[],
+    workspaces: Workspace[],
+    rooms: Room[],
+    existingAllocations: Allocation[]
+  ): Promise<Allocation[]> {
+    const allocations: Allocation[] = [];
+
+    // Sort employees by priority or any other criteria
+    const sortedEmployees = [...employees].sort((a, b) => {
+      // Add your sorting logic here
+      return 0;
+    });
+
+    for (const employee of sortedEmployees) {
+      const compatibleWorkspaces = this.findCompatibleWorkspaces(
+        employee,
+        workspaces,
+        rooms,
+        existingAllocations,
+        employees
+      );
+
+      if (compatibleWorkspaces.length > 0) {
+        // Choose the workspace with the highest score
+        const bestWorkspace = compatibleWorkspaces.reduce((a, b) =>
+          a.score > b.score ? a : b
+        );
+
+        // Create the allocation
+        const allocation = {
+          employee_id: employee.id,
+          workspace_id: bestWorkspace.workspace.id,
+          start_date: new Date().toISOString(),
+          end_date: null
+        };
+
+        try {
+          const newAllocation = await createAllocation(allocation);
+          allocations.push(newAllocation);
+          existingAllocations.push(newAllocation);
+        } catch (error) {
+          console.error('Failed to create allocation:', error);
+        }
+      }
+    }
+
+    return allocations;
   }
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -12,13 +12,15 @@ import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { CalendarIcon, AlertCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { createAllocation, findCompatibleWorkspaces, validateAllocation, autoAllocateSeats } from '@/lib/api/allocations';
+import { createAllocation, validateAllocation } from '@/lib/api/allocations';
 import { getEmployees } from '@/lib/api/employees';
 import { getWorkspaces } from '@/lib/api/workspaces';
+import { Workspace } from '@/types/workspace';
 import { useToast } from '@/components/ui/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
+import { Employee } from '../../types/employee';
 
+// Enhanced Zod schema with more robust validation
 const allocationFormSchema = z.object({
   employee_id: z.string().min(1, 'חובה לבחור עובד'),
   workspace_id: z.string().min(1, 'חובה לבחור מקום ישיבה'),
@@ -26,13 +28,16 @@ const allocationFormSchema = z.object({
     required_error: 'חובה לבחור תאריך התחלה',
   }),
   end_date: z.date().optional(),
-});
+}).refine(
+  (data) => !data.end_date || data.end_date >= data.start_date, 
+  { message: 'תאריך סיום חייב להיות לאחר תאריך ההתחלה', path: ['end_date'] }
+);
 
-type AllocationFormData = {
-  employee_id: string;
-  workspace_id: string;
-  start_date: Date;
-  end_date?: Date;
+type AllocationFormData = z.infer<typeof allocationFormSchema>;
+
+interface WorkspaceWithCompatibility extends Workspace {
+  compatibility_score: number;
+  incompatibility_reasons?: string[];
 }
 
 interface CreateAllocationFormProps {
@@ -43,11 +48,14 @@ export function CreateAllocationForm({ onSuccess }: CreateAllocationFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [compatibleWorkspaces, setCompatibleWorkspaces] = useState<{ workspace_id: string; compatibility_score: number }[]>([]);
-  const [validationResult, setValidationResult] = useState<{ isValid: boolean; constraints: any } | null>(null);
+  const [compatibleWorkspaces, setCompatibleWorkspaces] = useState<WorkspaceWithCompatibility[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
   const form = useForm<AllocationFormData>({
     resolver: zodResolver(allocationFormSchema),
+    defaultValues: {
+      start_date: new Date(),
+    }
   });
 
   const { data: employees } = useQuery({
@@ -61,77 +69,94 @@ export function CreateAllocationForm({ onSuccess }: CreateAllocationFormProps) {
   });
 
   const onEmployeeChange = async (employeeId: string) => {
-    form.setValue('employee_id', employeeId);
-    form.setValue('workspace_id', ''); 
-    setValidationResult(null);
-    
     try {
-      const compatibleSpaces = await findCompatibleWorkspaces(employeeId);
-      setCompatibleWorkspaces(compatibleSpaces);
+      const employee = employees?.find((e) => e.id === employeeId);
+      if (!employee) return;
+
+      setSelectedEmployee(employee);
+      
+      // Reset form state
+      form.setValue('employee_id', employeeId);
+      form.setValue('workspace_id', '');
+      
+      // Fetch ALL workspaces and compute compatibility
+      const allWorkspaces = await getWorkspaces();
+      
+      const workspacesWithCompatibility = await Promise.all(
+        allWorkspaces.map(async (workspace) => {
+          const compatibilityResult = await validateAllocation(employeeId, workspace.id);
+          return {
+            ...workspace,
+            compatibility_score: compatibilityResult.isValid ? 1 : 0,
+            incompatibility_reasons: compatibilityResult.isValid 
+              ? [] 
+              : Object.entries(compatibilityResult.constraints)
+                  .filter(([, value]) => !value)
+                  .map(([key]) => getConstraintDescription(key))
+          };
+        })
+      );
+
+      // Sort workspaces: compatible first, then by compatibility score
+      const sortedWorkspaces = workspacesWithCompatibility.sort((a, b) => 
+        b.compatibility_score - a.compatibility_score
+      );
+
+      setCompatibleWorkspaces(sortedWorkspaces);
     } catch (error) {
-      console.error('Failed to find compatible workspaces:', error);
       toast({
         title: 'שגיאה',
-        description: 'אירעה שגיאה בחיפוש מקומות ישיבה מתאימים',
+        description: 'אירעה שגיאה בטעינת מקומות ישיבה',
         variant: 'destructive',
       });
     }
   };
 
   const onWorkspaceChange = async (workspaceId: string) => {
-    form.setValue('workspace_id', workspaceId);
-    
-    if (form.getValues('employee_id') && workspaceId) {
-      try {
-        const result = await validateAllocation(form.getValues('employee_id'), workspaceId);
-        setValidationResult(result);
-      } catch (error) {
-        console.error('Failed to validate allocation:', error);
-      }
-    }
-  };
-
-  const handleAutoAllocate = async () => {
     try {
-      setIsSubmitting(true);
-      const allocations = await autoAllocateSeats();
+      form.setValue('workspace_id', workspaceId);
       
-      queryClient.invalidateQueries({ queryKey: ['allocations'] });
-      toast({
-        title: 'הקצאה אוטומטית בוצעה בהצלחה',
-        description: `בוצעו ${allocations.length} הקצאות חדשות`,
-      });
-      onSuccess();
+      if (selectedEmployee) {
+        const result = await validateAllocation(selectedEmployee.id, workspaceId);
+        
+        if (!result.isValid) {
+          toast({
+            title: 'אזהרה',
+            description: 'מקום הישיבה אינו תואם באופן מלא לעובד',
+            variant: 'destructive',
+          });
+        }
+      }
     } catch (error) {
-      console.error('Failed to auto-allocate seats:', error);
-      toast({
-        title: 'שגיאה',
-        description: 'אירעה שגיאה בהקצאה האוטומטית',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSubmitting(false);
+      console.error('Failed to validate allocation:', error);
     }
   };
 
   async function onSubmit(data: AllocationFormData) {
     try {
       setIsSubmitting(true);
+      
+      const workspace = compatibleWorkspaces.find(w => w.id === data.workspace_id);
+      const isFullyCompatible = workspace?.compatibility_score === 1;
+
       await createAllocation({
         ...data,
         start_date: data.start_date.toISOString(),
         end_date: data.end_date?.toISOString(),
-        status: 'pending',
+        status: isFullyCompatible ? 'approved' : 'pending_review',
       });
       
       queryClient.invalidateQueries({ queryKey: ['allocations'] });
+      
       toast({
         title: 'הקצאה נוצרה בהצלחה',
-        description: 'הקצאת המקום נוצרה ומחכה לאישור',
+        description: isFullyCompatible 
+          ? 'הקצאת המקום אושרה' 
+          : 'הקצאת המקום נוצרה ומחכה לבדיקה',
       });
+      
       onSuccess();
     } catch (error) {
-      console.error('Failed to create allocation:', error);
       toast({
         title: 'שגיאה',
         description: 'אירעה שגיאה ביצירת ההקצאה',
@@ -142,35 +167,40 @@ export function CreateAllocationForm({ onSuccess }: CreateAllocationFormProps) {
     }
   }
 
+  function getConstraintDescription(key: string): string {
+    const descriptions: Record<string, string> = {
+      gender: 'מגבלת מגדר',
+      religious: 'מגבלה דתית',
+      health: 'מגבלת בריאות',
+      schedule: 'מגבלת זמנים'
+    };
+    return descriptions[key] || key;
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="flex justify-end mb-4">
-          <Button
-            type="button"
-            onClick={handleAutoAllocate}
-            disabled={isSubmitting}
-            variant="outline"
-          >
-            הקצאה אוטומטית
-          </Button>
-        </div>
-
         <FormField
           control={form.control}
           name="employee_id"
           render={({ field }) => (
             <FormItem>
               <FormLabel>עובד</FormLabel>
-              <Select onValueChange={onEmployeeChange} defaultValue={field.value}>
+              <Select 
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  onEmployeeChange(value);
+                }} 
+                defaultValue={field.value}
+              >
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="בחר עובד" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {employees?.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id}>
+                  {employees?.map((employee, index) => (
+                    <SelectItem key={employee.id || `employee-${index}`} value={employee.id}>
                       {employee.first_name} {employee.last_name}
                     </SelectItem>
                   ))}
@@ -187,68 +217,49 @@ export function CreateAllocationForm({ onSuccess }: CreateAllocationFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>מקום ישיבה</FormLabel>
-              <Select onValueChange={onWorkspaceChange} defaultValue={field.value}>
+              <Select 
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  onWorkspaceChange(value);
+                }}
+                disabled={!selectedEmployee}
+                defaultValue={field.value}
+              >
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="בחר מקום ישיבה" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {workspaces?.map((workspace) => {
-                    const compatibility = compatibleWorkspaces.find(
-                      (cw) => cw.workspace_id === workspace.id
-                    );
-                    const score = compatibility?.compatibility_score || 0;
-                    const isCompatible = score > 0;
-
-                    return (
-                      <SelectItem
-                        key={workspace.id}
-                        value={workspace.id}
-                        className={cn(
-                          "flex items-center justify-between",
-                          !isCompatible && "opacity-50"
-                        )}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span>{workspace.name}</span>
-                          <Progress value={score} className="w-20" />
-                          <span className="text-sm text-muted-foreground">
-                            {score}%
+                  {compatibleWorkspaces.map((workspace, index) => (
+                    <SelectItem 
+                      key={workspace.id || `workspace-${index}`} 
+                      value={workspace.id}
+                      disabled={workspace.compatibility_score === 0}
+                    >
+                      <div className="flex flex-col">
+                        <div className="flex justify-between items-center">
+                          <span>{workspace.name || workspace.id}</span>
+                          <span className={`text-xs ${workspace.compatibility_score ? 'text-green-500' : 'text-red-500'}`}>
+                            {workspace.compatibility_score ? 'מתאים' : 'לא מתאים'}
                           </span>
                         </div>
-                      </SelectItem>
-                    );
-                  })}
+                        {workspace.incompatibility_reasons && workspace.incompatibility_reasons.length > 0 && (
+                          <div className="text-xs text-red-500 mt-1">
+                            {workspace.incompatibility_reasons.map(reason => (
+                              <div key={reason}>• {reason}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <FormMessage />
             </FormItem>
           )}
         />
-
-        {validationResult && !validationResult.isValid && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>אזהרה</AlertTitle>
-            <AlertDescription>
-              <div className="space-y-2">
-                {!validationResult.constraints.gender && (
-                  <p>• אילוץ מגדרי: מקום הישיבה לא מתאים למגדר העובד</p>
-                )}
-                {!validationResult.constraints.religious && (
-                  <p>• אילוץ דתי: מקום הישיבה לא מתאים לרמת הדתיות של העובד</p>
-                )}
-                {!validationResult.constraints.health && (
-                  <p>• אילוץ בריאותי: מקום הישיבה לא עומד בדרישות הבריאותיות</p>
-                )}
-                {!validationResult.constraints.schedule && (
-                  <p>• אילוץ לוח זמנים: קיימת התנגשות בלוח הזמנים עם עובד אחר</p>
-                )}
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
 
         <FormField
           control={form.control}
@@ -328,7 +339,10 @@ export function CreateAllocationForm({ onSuccess }: CreateAllocationFormProps) {
           )}
         />
 
-        <Button type="submit" disabled={isSubmitting || (validationResult && !validationResult.isValid)}>
+        <Button 
+          type="submit" 
+          disabled={isSubmitting || !form.formState.isValid}
+        >
           צור הקצאה
         </Button>
       </form>

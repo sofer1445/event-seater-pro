@@ -1,58 +1,88 @@
-import { supabase } from '@/lib/supabase';
-import { Workspace } from '@/types/workspace';
+import { query } from '@/lib/api/db';
+import { v4 as uuidv4 } from 'uuid';
 
-export async function getWorkspaces(): Promise<Workspace[]> {
-  const { data, error } = await supabase
-    .from('workspaces')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return data;
+export async function getWorkspaces(): Promise<any[]> {
+  try {
+    console.log('Fetching workspaces from PostgreSQL...');
+    const result = await query(
+      'SELECT id, name, room_id as "roomId", features, restrictions, coordinates, created_at, updated_at FROM workspaces ORDER BY created_at DESC'
+    );
+    console.log('Workspaces fetched successfully:', result.rows);
+    return result.rows;
+  } catch (error) {
+    console.error('Failed to fetch workspaces:', error);
+    throw error;
+  }
 }
 
-export async function getWorkspace(id: string): Promise<Workspace> {
-  const { data, error } = await supabase
-    .from('workspaces')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (error) throw error;
-  return data;
+export async function getWorkspace(id: string): Promise<any> {
+  try {
+    console.log('Fetching workspace from PostgreSQL...');
+    const result = await query(
+      'SELECT id, name, room_id as "roomId", features, restrictions, coordinates, created_at, updated_at FROM workspaces WHERE id = $1',
+      [id]
+    );
+    console.log('Workspace fetched successfully:', result.rows[0]);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Failed to fetch workspace:', error);
+    throw error;
+  }
 }
 
-export async function createWorkspace(workspace: Omit<Workspace, 'id' | 'created_at' | 'updated_at'>): Promise<Workspace> {
-  const { data, error } = await supabase
-    .from('workspaces')
-    .insert([workspace])
-    .select()
-    .single();
+export async function createWorkspace(workspace: any): Promise<any> {
+  try {
+    console.log('Creating workspace...');
+    
+    // Prepare workspace data
+    const workspaceData = {
+      name: workspace.name,
+      room_id: workspace.roomId || workspace.room_id, // Support both formats
+      coordinates: workspace.coordinates || { x: 0, y: 0 },
+      features: workspace.features || [],
+      restrictions: workspace.restrictions || []
+    };
 
-  if (error) throw error;
-  return data;
+    console.log('Workspace creation payload:', workspaceData);
+
+    const result = await query(
+      'INSERT INTO workspaces (name, room_id, coordinates, features, restrictions) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, room_id as "roomId", features, restrictions, coordinates, created_at, updated_at',
+      [workspaceData.name, workspaceData.room_id, workspaceData.coordinates, workspaceData.features, workspaceData.restrictions]
+    );
+
+    return result.rows[0];
+  } catch (error) {
+    console.error('Failed to create workspace:', error);
+    throw error;
+  }
 }
 
 export async function updateWorkspace(
   id: string,
-  workspace: Partial<Omit<Workspace, 'id' | 'created_at' | 'updated_at'>>
-): Promise<Workspace> {
-  const { data, error } = await supabase
-    .from('workspaces')
-    .update(workspace)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  workspace: any
+): Promise<any> {
+  try {
+    console.log('Updating workspace in PostgreSQL...');
+    const { name, roomId, features, restrictions, coordinates } = workspace;
+    const result = await query(
+      'UPDATE workspaces SET name = $1, room_id = $2, features = $3, restrictions = $4, coordinates = $5 WHERE id = $6 RETURNING id, name, room_id as "roomId", features, restrictions, coordinates, created_at, updated_at',
+      [name, roomId, features, restrictions, coordinates, id]
+    );
+    console.log('Workspace updated successfully:', result.rows[0]);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Failed to update workspace:', error);
+    throw error;
+  }
 }
 
 export async function deleteWorkspace(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('workspaces')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
+  try {
+    console.log('Deleting workspace from PostgreSQL...');
+    await query('DELETE FROM workspaces WHERE id = $1', [id]);
+    console.log('Workspace deleted successfully');
+  } catch (error) {
+    console.error('Failed to delete workspace:', error);
+    throw error;
+  }
 }

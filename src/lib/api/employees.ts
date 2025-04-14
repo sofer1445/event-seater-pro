@@ -1,58 +1,36 @@
-import { supabase } from '@/lib/supabase';
-import { Employee } from '@/types/employee';
+import { apiClient } from './apiClient';
+import { Employee, EmployeeConstraints } from '@/types/employee';
 
-export async function getEmployees(): Promise<Employee[]> {
-  const { data, error } = await supabase
-    .from('employees')
-    .select('*')
-    .order('created_at', { ascending: false });
+export const getEmployees = (): Promise<Employee[]> => {
+  return apiClient.get('/employees');
+};
 
-  if (error) throw error;
-  return data;
-}
+export const getEmployee = (id: string): Promise<Employee> => {
+  return apiClient.get(`/employees/${id}`);
+};
 
-export async function getEmployee(id: string): Promise<Employee> {
-  const { data, error } = await supabase
-    .from('employees')
-    .select('*')
-    .eq('id', id)
-    .single();
+export const createEmployee = (employee: Partial<Employee>): Promise<Employee> => {
+  return apiClient.post('/employees', employee);
+};
 
-  if (error) throw error;
-  return data;
-}
+export const updateEmployee = (id: string, employee: Partial<Employee>): Promise<Employee> => {
+  return apiClient.patch(`/employees/${id}`, employee);
+};
 
-export async function createEmployee(employee: Omit<Employee, 'id' | 'created_at' | 'updated_at'>): Promise<Employee> {
-  const { data, error } = await supabase
-    .from('employees')
-    .insert([employee])
-    .select()
-    .single();
+export const deleteEmployee = (id: string): Promise<void> => {
+  return apiClient.delete(`/employees/${id}`);
+};
 
-  if (error) throw error;
-  return data;
-}
+/**
+ * עדכון אילוצי העובד
+ */
+export const updateEmployeeConstraints = (id: string, constraints: EmployeeConstraints): Promise<Employee> => {
+  return apiClient.patch(`/employees/${id}`, { constraints });
+};
 
-export async function updateEmployee(
-  id: string,
-  employee: Partial<Omit<Employee, 'id' | 'created_at' | 'updated_at'>>
-): Promise<Employee> {
-  const { data, error } = await supabase
-    .from('employees')
-    .update(employee)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-export async function deleteEmployee(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('employees')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
-}
+/**
+ * קבלת אילוצי העובד
+ */
+export const getEmployeeConstraints = (id: string): Promise<EmployeeConstraints> => {
+  return apiClient.get(`/employees/${id}/constraints`);
+};
