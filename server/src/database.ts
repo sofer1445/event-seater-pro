@@ -173,6 +173,9 @@ async function runMigrations() {
     console.log('Running migrations...');
     
     // Add any migrations here
+    // Import and run the employee fields migration
+    const addEmployeeFields = (await import('./db/migrations/add-employee-fields')).default;
+    await addEmployeeFields();
     
     console.log('u2705 Migrations completed successfully');
   } catch (err) {

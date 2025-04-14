@@ -7,8 +7,12 @@ interface Employee {
   first_name: string;
   last_name: string;
   email: string;
+  gender?: 'male' | 'female' | 'other';
+  religious_level?: 'secular' | 'traditional' | 'religious' | 'orthodox';
   is_religious: boolean;
   has_health_constraints: boolean;
+  preferred_location?: 'window' | 'center' | 'any';
+  noise_preference?: 'quiet' | 'moderate' | 'loud' | 'any';
   created_at?: Date;
   updated_at?: Date;
 }
@@ -50,8 +54,12 @@ router.post('/', async (req, res) => {
       first_name,
       last_name,
       email,
+      gender,
+      religious_level,
       is_religious,
-      has_health_constraints
+      has_health_constraints,
+      preferred_location,
+      noise_preference
     } = req.body;
 
     // Validate required fields
@@ -72,19 +80,34 @@ router.post('/', async (req, res) => {
       });
     }
 
-    console.log('Creating employee with data:', { first_name, last_name, email, is_religious, has_health_constraints });
+    console.log('Creating employee with data:', { 
+      first_name, 
+      last_name, 
+      email, 
+      gender, 
+      religious_level, 
+      is_religious, 
+      has_health_constraints,
+      preferred_location,
+      noise_preference
+    });
 
-    // Insert employee with constraints
+    // Insert employee with all fields
     const result = await pool.query(
       `INSERT INTO employees (
-        first_name, last_name, email, is_religious, has_health_constraints
-      ) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        first_name, last_name, email, gender, religious_level, 
+        is_religious, has_health_constraints, preferred_location, noise_preference
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
       [
         first_name,
         last_name,
         email,
+        gender || null,
+        religious_level || null,
         is_religious || false,
-        has_health_constraints || false
+        has_health_constraints || false,
+        preferred_location || null,
+        noise_preference || null
       ]
     );
 

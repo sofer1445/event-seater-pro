@@ -176,7 +176,7 @@ function calculateReligiousScore(
   return score;
 }
 
-function calculateSeatScore(
+export function calculateSeatScore(
   employee: Employee,
   table: Table,
   seat: Seat,
@@ -193,15 +193,27 @@ function calculateSeatScore(
     return 0; 
   }
 
-  if (constraints.respectGender && table.gender_restriction !== 'none') {
+  if (constraints.respectGender) {
+    // Check table's gender restriction
+    if (table.gender_restriction !== 'none') {
+      // If table is restricted to a specific gender, employee must match that gender
+      if (employee.gender !== table.gender_restriction) {
+        console.log(`Employee ${employee.first_name} ${employee.last_name} with gender ${employee.gender} cannot sit at table ${table.name} with gender restriction ${table.gender_restriction}`);
+        score -= 50; 
+      }
+    }
+    
+    // Also check that all people at the table are the same gender (for tables without explicit restriction)
     const tableAllocations = currentAllocations.filter(a => a.tableId === table.id);
     const tableEmployees = tableAllocations
       .map(a => employees.find(e => e.id === a.employeeId))
       .filter((e): e is Employee => e !== undefined);
-
+    
     if (tableEmployees.length > 0) {
+      // Check if everyone at the table is the same gender
       const sameGenderCount = tableEmployees.filter(e => e.gender === employee.gender).length;
       if (sameGenderCount !== tableEmployees.length) {
+        console.log(`Cannot mix genders at the same table: Employee ${employee.first_name} with gender ${employee.gender} cannot sit with different gender employees`);
         score -= 50; 
       }
     }
@@ -633,7 +645,17 @@ function validateSeating(
   }
   
   // Gender constraints
-  if (constraints.respectGender && table.gender_restriction !== 'none') {
+  if (constraints.respectGender) {
+    // Check table's gender restriction
+    if (table.gender_restriction !== 'none') {
+      // If table is restricted to a specific gender, employee must match that gender
+      if (employee.gender !== table.gender_restriction) {
+        console.log(`Employee ${employee.first_name} ${employee.last_name} with gender ${employee.gender} cannot sit at table ${table.name} with gender restriction ${table.gender_restriction}`);
+        return false;
+      }
+    }
+    
+    // Also check that all people at the table are the same gender (for tables without explicit restriction)
     const tableAllocations = currentAllocations.filter(a => a.tableId === table.id);
     const tableEmployees = tableAllocations
       .map(a => employees.find(e => e.id === a.employeeId))
@@ -643,6 +665,7 @@ function validateSeating(
       // Check if everyone at the table is the same gender
       const sameGenderCount = tableEmployees.filter(e => e.gender === employee.gender).length;
       if (sameGenderCount !== tableEmployees.length) {
+        console.log(`Cannot mix genders at the same table: Employee ${employee.first_name} with gender ${employee.gender} cannot sit with different gender employees`);
         return false;
       }
     }
@@ -704,7 +727,7 @@ export function applyAllocations(allocations: AllocationResult[]): Promise<Alloc
             const updated = await updateSeat(allocation.seatId, { 
               status: 'occupied',
               occupied_by: allocation.employeeId 
-            });
+            }, true); // Set to true to indicate bulk allocation
             
             if (updated) {
               results.push(allocation);

@@ -10,6 +10,7 @@ import enhancedAllocationsRouter from './routes/enhancedAllocations';
 import genericQueryRouter from './routes/generic-query';
 import { testDatabaseQueries } from './database'; // Import the test function
 import addConstraintViolationsTable from './db/migrations/add-constraint-violations-table';
+import addEmployeeFields from './db/migrations/add-employee-fields';
 
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -52,6 +53,7 @@ app.listen(port, async () => {
   // Run migrations
   try {
     await addConstraintViolationsTable();
+    await addEmployeeFields();
   } catch (error) {
     console.error('Error running migrations:', error);
   }

@@ -33,8 +33,12 @@ interface EmployeeFormData {
   first_name: string;
   last_name: string;
   email: string;
+  gender?: 'male' | 'female' | 'other';
+  religious_level?: 'secular' | 'traditional' | 'religious' | 'orthodox';
   is_religious?: boolean;
   has_health_constraints?: boolean;
+  preferred_location?: 'window' | 'center' | 'any';
+  noise_preference?: 'quiet' | 'moderate' | 'loud' | 'any';
 }
 
 interface EmployeeFormProps {
@@ -47,8 +51,12 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, onSubmit, onCa
   const [firstName, setFirstName] = React.useState(initialData?.first_name || '');
   const [lastName, setLastName] = React.useState(initialData?.last_name || '');
   const [email, setEmail] = React.useState(initialData?.email || '');
+  const [gender, setGender] = React.useState(initialData?.gender || '');
+  const [religiousLevel, setReligiousLevel] = React.useState(initialData?.religious_level || '');
   const [isReligious, setIsReligious] = React.useState(initialData?.is_religious || false);
   const [hasHealthConstraints, setHasHealthConstraints] = React.useState(initialData?.has_health_constraints || false);
+  const [preferredLocation, setPreferredLocation] = React.useState(initialData?.preferred_location || '');
+  const [noisePreference, setNoisePreference] = React.useState(initialData?.noise_preference || '');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,8 +64,12 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, onSubmit, onCa
       first_name: firstName,
       last_name: lastName,
       email,
+      gender,
+      religious_level: religiousLevel,
       is_religious: isReligious,
       has_health_constraints: hasHealthConstraints,
+      preferred_location: preferredLocation,
+      noise_preference: noisePreference,
     });
   };
 
@@ -94,6 +106,35 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, onSubmit, onCa
         />
       </div>
       
+      <div className="space-y-2">
+        <Label htmlFor="gender">מגדר</Label>
+        <select
+          id="gender"
+          value={gender}
+          onChange={(e) => setGender(e.target.value)}
+        >
+          <option value="">בחר</option>
+          <option value="male">זכר</option>
+          <option value="female">נקבה</option>
+          <option value="other">אחר</option>
+        </select>
+      </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor="religiousLevel">רמת דתיות</Label>
+        <select
+          id="religiousLevel"
+          value={religiousLevel}
+          onChange={(e) => setReligiousLevel(e.target.value)}
+        >
+          <option value="">בחר</option>
+          <option value="secular">חילוני</option>
+          <option value="traditional">מסורתי</option>
+          <option value="religious">דתי</option>
+          <option value="orthodox">חרדי</option>
+        </select>
+      </div>
+      
       <div className="flex items-center space-x-2">
         <Checkbox
           id="isReligious"
@@ -110,6 +151,35 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({ initialData, onSubmit, onCa
           onCheckedChange={(checked) => setHasHealthConstraints(checked as boolean)}
         />
         <Label htmlFor="hasHealthConstraints">מגבלות בריאותיות</Label>
+      </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor="preferredLocation">העדפת מיקום</Label>
+        <select
+          id="preferredLocation"
+          value={preferredLocation}
+          onChange={(e) => setPreferredLocation(e.target.value)}
+        >
+          <option value="">בחר</option>
+          <option value="window">חלון</option>
+          <option value="center">מרכז</option>
+          <option value="any">כל</option>
+        </select>
+      </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor="noisePreference">העדפת רעש</Label>
+        <select
+          id="noisePreference"
+          value={noisePreference}
+          onChange={(e) => setNoisePreference(e.target.value)}
+        >
+          <option value="">בחר</option>
+          <option value="quiet">שקט</option>
+          <option value="moderate">בינוני</option>
+          <option value="loud">רועש</option>
+          <option value="any">כל</option>
+        </select>
       </div>
       
       <div className="flex justify-end space-x-2">
