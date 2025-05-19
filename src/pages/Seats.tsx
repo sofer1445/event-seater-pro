@@ -35,7 +35,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { getTables } from '@/lib/api/tables';
 import { getTableSeats, createSeat, updateSeat, deleteSeat } from '@/lib/api/seats';
 import { getEmployees } from '@/lib/api/employees';
-import { TableType, Seat, Employee } from '@/types/tables';
+import { Table as TableData, Seat, Employee } from '@/types/tables';
+import { Employee as EmployeeData } from '@/types/employee';
 
 interface SeatFormData {
   position: number;
@@ -113,7 +114,7 @@ const SeatForm: React.FC<SeatFormProps> = ({ tableId, initialData, employees, on
             <SelectContent>
               {employees.map((employee) => (
                 <SelectItem key={employee.id} value={employee.id}>
-                  {employee.first_name} {employee.last_name}
+                  {employee.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -153,10 +154,28 @@ const Seats: React.FC = () => {
     enabled: !!selectedTable,
   });
 
-  const { data: employees = [] } = useQuery({
+  const { data: employeesData = [] } = useQuery<EmployeeData[]>({
     queryKey: ['employees'],
     queryFn: getEmployees,
   });
+  
+  // Transform employees to match the Employee type from tables.ts
+  const employees: Employee[] = React.useMemo(() => {
+    return employeesData.map((emp: EmployeeData) => ({
+      id: emp.id,
+      name: emp.name || `${emp.first_name} ${emp.last_name}`,
+      email: emp.email,
+      gender: (emp.gender === 'other' ? 'male' : emp.gender || 'male') as 'male' | 'female', // Default to male if other or undefined
+      religious_level: emp.religious_level || 'secular',
+      team: emp.team || '',
+      team_members: emp.preferred_colleagues,
+      constraints: {
+        healthConstraints: emp.has_health_constraints,
+        noisePreference: emp.noise_preference as any,
+        locationPreference: emp.preferred_location as any
+      }
+    }));
+  }, [employeesData]);
 
   const createMutation = useMutation({
     mutationFn: ({ tableId, ...data }: { tableId: string } & SeatFormData) =>
@@ -217,7 +236,7 @@ const Seats: React.FC = () => {
 
   const getEmployeeName = (id: string) => {
     const employee = employees.find(e => e.id === id);
-    return employee ? `${employee.first_name} ${employee.last_name}` : 'לא ידוע';
+    return employee ? employee.name : 'לא ידוע';
   };
 
   return (
